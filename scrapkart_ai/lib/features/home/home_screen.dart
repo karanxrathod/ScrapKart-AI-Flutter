@@ -51,10 +51,10 @@ class _HomeScreenState extends State<HomeScreen> {
       double earnings = 0.0;
       double weight = 0.0;
       for (final b in list) {
-        final double w = double.tryParse(b['estimatedWeight']?.toString() ?? '') ?? 0.0;
+        final double w = double.tryParse(b['actualWeight']?.toString() ?? b['estimatedWeight']?.toString() ?? '') ?? 0.0;
         weight += w;
         
-        double price = double.tryParse(b['estimatedPrice']?.toString() ?? '') ?? 0.0;
+        double price = double.tryParse(b['actualPrice']?.toString() ?? b['estimatedPrice']?.toString() ?? '') ?? 0.0;
         if (price == 0.0) {
           double maxRate = 15.0;
           final scrapTypes = List<String>.from(b['scrapTypes'] ?? []);

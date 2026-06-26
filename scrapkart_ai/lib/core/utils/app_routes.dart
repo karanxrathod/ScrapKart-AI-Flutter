@@ -45,7 +45,10 @@ class AppRoutes {
       ),
       GoRoute(
         path: '/tracking',
-        builder: (context, state) => const TrackingScreen(),
+        builder: (context, state) {
+          final bookingId = state.uri.queryParameters['id'];
+          return TrackingScreen(bookingId: bookingId);
+        },
       ),
       GoRoute(
         path: '/chatbot',

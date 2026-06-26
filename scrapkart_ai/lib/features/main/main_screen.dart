@@ -31,7 +31,9 @@ class _MainScreenState extends State<MainScreen> {
       BookingsListScreen(
         onNewBookingTap: () => setState(() => _currentIndex = 1),
       ),
-      const ProfileScreen(),
+      ProfileScreen(
+        onOrderHistoryTap: () => setState(() => _currentIndex = 2),
+      ),
     ];
   }
 

@@ -8,7 +8,8 @@ import '../../services/gemini_service.dart';
 import '../../services/local_db_service.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  final VoidCallback? onOrderHistoryTap;
+  const ProfileScreen({super.key, this.onOrderHistoryTap});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -53,10 +54,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       double weight = 0.0;
       double earnings = 0.0;
       for (final b in list) {
-        final double w = double.tryParse(b['estimatedWeight']?.toString() ?? '') ?? 0.0;
+        final double w = double.tryParse(b['actualWeight']?.toString() ?? b['estimatedWeight']?.toString() ?? '') ?? 0.0;
         weight += w;
         
-        double price = double.tryParse(b['estimatedPrice']?.toString() ?? '') ?? 0.0;
+        double price = double.tryParse(b['actualPrice']?.toString() ?? b['estimatedPrice']?.toString() ?? '') ?? 0.0;
         if (price == 0.0) {
           double maxRate = 15.0;
           final scrapTypes = List<String>.from(b['scrapTypes'] ?? []);
@@ -242,7 +243,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             if (context.mounted) {
                               Navigator.pop(context);
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Gemini API Key saved successfully! 🎉')),
+                                  const SnackBar(content: Text('Gemini API Key saved successfully! 🎉')),
                               );
                             }
                           },
@@ -250,6 +251,376 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                       ),
                     ],
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showSavedAddressesBottomSheet(BuildContext context) {
+    final labelController = TextEditingController();
+    final addressController = TextEditingController();
+    List<Map<String, String>> addresses = [];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            Future<void> reload() async {
+              final list = await LocalDbService.instance.getSavedAddresses();
+              setSheetState(() {
+                addresses = list;
+              });
+            }
+
+            if (addresses.isEmpty) {
+              reload();
+            }
+
+            return Container(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+                top: 24,
+                left: 24,
+                right: 24,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.15),
+                    blurRadius: 20,
+                    offset: const Offset(0, -5),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 50,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: AppColors.textSecondary.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text('Saved Addresses', style: AppTextStyles.title),
+                  const SizedBox(height: 12),
+                  if (addresses.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16.0),
+                      child: Text('No saved addresses yet.', style: AppTextStyles.body.copyWith(color: AppColors.textSecondary)),
+                    )
+                  else
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 200),
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: addresses.length,
+                        itemBuilder: (context, index) {
+                          final addr = addresses[index];
+                          return Card(
+                            color: Colors.white.withValues(alpha: 0.5),
+                            elevation: 0,
+                            margin: const EdgeInsets.symmetric(vertical: 4),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: const BorderSide(color: Colors.white, width: 1.5),
+                            ),
+                            child: ListTile(
+                              title: Text(addr['label'] ?? '', style: AppTextStyles.title.copyWith(fontSize: 14)),
+                              subtitle: Text(addr['addressLine'] ?? '', style: AppTextStyles.body.copyWith(fontSize: 12)),
+                              trailing: IconButton(
+                                icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                                onPressed: () async {
+                                  await LocalDbService.instance.deleteSavedAddress(addr['id']!);
+                                  reload();
+                                },
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+                  const Divider(),
+                  const SizedBox(height: 12),
+                  Text('Add New Address', style: AppTextStyles.title.copyWith(fontSize: 16)),
+                  const SizedBox(height: 12),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                    ),
+                    child: TextField(
+                      controller: labelController,
+                      style: AppTextStyles.body.copyWith(color: AppColors.textPrimary),
+                      decoration: InputDecoration(
+                        hintText: 'Address Label (e.g. Home, Office)',
+                        hintStyle: AppTextStyles.body,
+                        prefixIcon: const Icon(Icons.label_outline, color: AppColors.primary),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                    ),
+                    child: TextField(
+                      controller: addressController,
+                      style: AppTextStyles.body.copyWith(color: AppColors.textPrimary),
+                      maxLines: 2,
+                      decoration: InputDecoration(
+                        hintText: 'Address Line',
+                        hintStyle: AppTextStyles.body,
+                        prefixIcon: const Icon(Icons.location_on_outlined, color: AppColors.primary),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      onPressed: () async {
+                        final label = labelController.text.trim();
+                        final addressLine = addressController.text.trim();
+                        if (label.isEmpty || addressLine.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Please enter both label and address line.')),
+                          );
+                          return;
+                        }
+                        await LocalDbService.instance.addSavedAddress(label, addressLine);
+                        labelController.clear();
+                        addressController.clear();
+                        reload();
+                      },
+                      child: Text('Add Address', style: AppTextStyles.button.copyWith(fontSize: 14)),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showPaymentMethodsBottomSheet(BuildContext context) {
+    final detailsController = TextEditingController();
+    String selectedType = 'UPI';
+    List<Map<String, String>> payments = [];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            Future<void> reload() async {
+              final list = await LocalDbService.instance.getSavedPaymentMethods();
+              setSheetState(() {
+                payments = list;
+              });
+            }
+
+            if (payments.isEmpty) {
+              reload();
+            }
+
+            return Container(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+                top: 24,
+                left: 24,
+                right: 24,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.15),
+                    blurRadius: 20,
+                    offset: const Offset(0, -5),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 50,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: AppColors.textSecondary.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text('Payment Methods', style: AppTextStyles.title),
+                  const SizedBox(height: 12),
+                  if (payments.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16.0),
+                      child: Text('No saved payment methods yet.', style: AppTextStyles.body.copyWith(color: AppColors.textSecondary)),
+                    )
+                  else
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 200),
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: payments.length,
+                        itemBuilder: (context, index) {
+                          final pay = payments[index];
+                          return Card(
+                            color: Colors.white.withValues(alpha: 0.5),
+                            elevation: 0,
+                            margin: const EdgeInsets.symmetric(vertical: 4),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: const BorderSide(color: Colors.white, width: 1.5),
+                            ),
+                            child: ListTile(
+                              leading: Icon(
+                                pay['type'] == 'UPI'
+                                    ? Icons.account_balance_wallet_outlined
+                                    : pay['type'] == 'Card'
+                                        ? Icons.credit_card_outlined
+                                        : Icons.money_outlined,
+                                color: AppColors.primary,
+                              ),
+                              title: Text(pay['type'] ?? '', style: AppTextStyles.title.copyWith(fontSize: 14)),
+                              subtitle: Text(pay['details'] ?? '', style: AppTextStyles.body.copyWith(fontSize: 12)),
+                              trailing: IconButton(
+                                icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                                onPressed: () async {
+                                  await LocalDbService.instance.deleteSavedPaymentMethod(pay['id']!);
+                                  reload();
+                                },
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+                  const Divider(),
+                  const SizedBox(height: 12),
+                  Text('Add New Method', style: AppTextStyles.title.copyWith(fontSize: 16)),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: ['UPI', 'Card', 'Cash'].map((type) {
+                      final isSelected = selectedType == type;
+                      return ChoiceChip(
+                        label: Text(type, style: AppTextStyles.body.copyWith(
+                          color: isSelected ? Colors.white : AppColors.textPrimary,
+                          fontSize: 14,
+                        )),
+                        selected: isSelected,
+                        selectedColor: AppColors.primary,
+                        backgroundColor: Colors.white.withValues(alpha: 0.5),
+                        checkmarkColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                          side: BorderSide(color: isSelected ? AppColors.primary : Colors.white)
+                        ),
+                        onSelected: (bool selected) {
+                          if (selected) {
+                            setSheetState(() {
+                              selectedType = type;
+                            });
+                          }
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                    ),
+                    child: TextField(
+                      controller: detailsController,
+                      style: AppTextStyles.body.copyWith(color: AppColors.textPrimary),
+                      decoration: InputDecoration(
+                        hintText: selectedType == 'Cash'
+                            ? 'Details (e.g. Hand over cash)'
+                            : selectedType == 'UPI'
+                                ? 'UPI ID (e.g. user@okhdfcbank)'
+                                : 'Card Number details (e.g. **** **** **** 1234)',
+                        hintStyle: AppTextStyles.body,
+                        prefixIcon: Icon(
+                          selectedType == 'UPI'
+                              ? Icons.account_balance_wallet_outlined
+                              : selectedType == 'Card'
+                                  ? Icons.credit_card_outlined
+                                  : Icons.money_outlined,
+                          color: AppColors.primary,
+                        ),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      onPressed: () async {
+                        final details = detailsController.text.trim();
+                        if (details.isEmpty && selectedType != 'Cash') {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Please enter details.')),
+                          );
+                          return;
+                        }
+                        final detailsText = selectedType == 'Cash' && details.isEmpty ? 'Cash on Delivery' : details;
+                        await LocalDbService.instance.addSavedPaymentMethod(selectedType, detailsText);
+                        detailsController.clear();
+                        reload();
+                      },
+                      child: Text('Add Payment Method', style: AppTextStyles.button.copyWith(fontSize: 14)),
+                    ),
                   ),
                 ],
               ),
@@ -303,18 +674,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Icons.restore_rounded, 
             'Order History', 
             AppColors.tertiary,
+            onTap: widget.onOrderHistoryTap,
           ).animate().fadeIn(delay: 200.ms),
           const SizedBox(height: 16),
           _buildOptionTile(
             Icons.payment_rounded, 
             'Payment Methods', 
             AppColors.accent,
+            onTap: () => _showPaymentMethodsBottomSheet(context),
           ).animate().fadeIn(delay: 300.ms),
           const SizedBox(height: 16),
           _buildOptionTile(
             Icons.location_on_rounded, 
             'Saved Addresses', 
             AppColors.secondary,
+            onTap: () => _showSavedAddressesBottomSheet(context),
           ).animate().fadeIn(delay: 400.ms),
           const SizedBox(height: 16),
           _buildOptionTile(

@@ -175,7 +175,7 @@ class _BookingsListScreenState extends State<BookingsListScreen> {
               ),
               ElevatedButton.icon(
                 onPressed: () {
-                  context.push('/tracking');
+                  context.push('/tracking?id=$id');
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
