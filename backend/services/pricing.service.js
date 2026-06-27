@@ -1,8 +1,7 @@
 const cron = require('node-cron');
 const axios = require('axios');
 const cheerio = require('cheerio');
-const db = require('../models');
-// Assuming we have a ScrapRate model. If not, we'll just mock it or log it for now.
+// Extend with db.ScrapRate model once you add a ScrapRate model to /models
 
 class PricingService {
   init() {
