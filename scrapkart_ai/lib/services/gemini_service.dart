@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:image/image.dart' as img;
 
 class GeminiService {
@@ -205,63 +204,116 @@ class GeminiService {
     }
   }
 
-  // Offline AI Fallback using TFLite
+  // ── Offline AI Fallback: Smart Image Color Analysis ──────────────────────
+  // No model file needed. Analyzes dominant colors to classify scrap type.
+  // Works 100% offline on any device.
   Future<Map<String, dynamic>> scanMaterialOffline(File imageFile) async {
     try {
-      // 1. Load the TFLite model
-      final interpreter = await Interpreter.fromAsset('assets/models/scrap_model.tflite');
-      
-      // 2. Prepare the input image
       final bytes = await imageFile.readAsBytes();
       img.Image? originalImage = img.decodeImage(bytes);
-      if (originalImage == null) throw Exception('Cannot decode image');
-      
-      // Resize to 224x224 for standard MobileNet/custom model input
-      img.Image resizedImage = img.copyResize(originalImage, width: 224, height: 224);
-      
-      // Normalize pixels to [0, 1] or [-1, 1] depending on model
-      var input = List.generate(1, (i) => List.generate(224, (j) => List.generate(224, (k) => List.generate(3, (l) => 0.0))));
-      for (var y = 0; y < 224; y++) {
-        for (var x = 0; x < 224; x++) {
-          final pixel = resizedImage.getPixel(x, y);
-          input[0][y][x][0] = pixel.r / 255.0; // Red
-          input[0][y][x][1] = pixel.g / 255.0; // Green
-          input[0][y][x][2] = pixel.b / 255.0; // Blue
+      if (originalImage == null) throw Exception('Cannot decode image.');
+
+      // Resize for faster processing
+      img.Image small = img.copyResize(originalImage, width: 64, height: 64);
+
+      double totalR = 0, totalG = 0, totalB = 0;
+      double totalBrightness = 0;
+      double metallic = 0; // silver/grey pixels
+      double greenish = 0; // green/natural pixels
+      double darkPixels = 0; // dark/black (e-waste boards)
+      int count = small.width * small.height;
+
+      for (var y = 0; y < small.height; y++) {
+        for (var x = 0; x < small.width; x++) {
+          final pixel = small.getPixel(x, y);
+          final r = pixel.r.toDouble();
+          final g = pixel.g.toDouble();
+          final b = pixel.b.toDouble();
+          final brightness = (r + g + b) / 3.0;
+
+          totalR += r;
+          totalG += g;
+          totalB += b;
+          totalBrightness += brightness;
+
+          // Metallic: grey/silver = R~G~B all similar & mid-brightness
+          if ((r - g).abs() < 25 && (g - b).abs() < 25 && brightness > 80 && brightness < 200) {
+            metallic++;
+          }
+          // Greenish: nature/paper/cardboard
+          if (g > r * 1.1 && g > b * 1.1) greenish++;
+          // Dark: e-waste PCBs are very dark
+          if (brightness < 60) darkPixels++;
         }
       }
-      
-      // 3. Run inference (assuming 5 output classes: Plastics, Metal, E-Waste, Paper, Glass)
-      var output = List.generate(1, (i) => List.filled(5, 0.0));
-      interpreter.run(input, output);
-      
-      // 4. Find the argmax
-      final probabilities = output[0];
-      int highestProbIndex = 0;
-      double highestProb = probabilities[0];
-      for (int i = 1; i < probabilities.length; i++) {
-        if (probabilities[i] > highestProb) {
-          highestProb = probabilities[i];
-          highestProbIndex = i;
-        }
+
+      final avgR = totalR / count;
+      final avgG = totalG / count;
+      final avgB = totalB / count;
+      final avgBright = totalBrightness / count;
+      final metallicRatio = metallic / count;
+      final greenRatio = greenish / count;
+      final darkRatio = darkPixels / count;
+
+      // ── Classification Rules ─────────────────────────────────────────────
+      String category;
+      String material;
+      int pricePerKg;
+
+      if (darkRatio > 0.35 && metallicRatio < 0.2) {
+        // Lots of dark pixels + not metallic = E-Waste (PCBs, wires)
+        category = 'E-Waste';
+        material = 'Electronic Waste / PCB Board';
+        pricePerKg = 120;
+      } else if (metallicRatio > 0.30) {
+        // Lots of grey/silver pixels = Metal
+        category = 'Metal Scrap';
+        material = 'Metal Scrap (Steel / Aluminium)';
+        pricePerKg = 45;
+      } else if (avgBright > 200 && avgR < 200 && avgG < 200 && avgB > 180) {
+        // Very bright & blue-ish = Glass
+        category = 'Glass Scrap';
+        material = 'Glass Bottle / Container';
+        pricePerKg = 5;
+      } else if (greenRatio > 0.25 ||
+          (avgG > avgR * 0.9 && avgBright > 120 && avgBright < 210)) {
+        // Green tones or warm brown = Paper/Cardboard
+        category = 'Paper & Cardboard';
+        material = 'Cardboard / Paper Waste';
+        pricePerKg = 8;
+      } else if (avgR > 160 && avgB > 150 && avgG > 150 && avgBright > 150) {
+        // Bright, colorful, mixed = Plastic
+        category = 'Recyclable Plastics';
+        material = 'Plastic Bottle / Container';
+        pricePerKg = 12;
+      } else {
+        // Default fallback
+        category = 'Recyclable Plastics';
+        material = 'Mixed Recyclable Plastic';
+        pricePerKg = 10;
       }
-      
-      interpreter.close();
-      
-      // Map index to mock result structure
-      final classes = ['Recyclable Plastics', 'Metal Scrap', 'E-Waste', 'Paper & Cardboard', 'Glass Scrap'];
-      final basePrices = [12, 45, 120, 8, 5];
-      
+
+      debugPrint('Offline Scan: avgR=$avgR avgG=$avgG avgB=$avgB metallic=${(metallicRatio*100).toStringAsFixed(1)}% dark=${(darkRatio*100).toStringAsFixed(1)}% -> $category');
+
       return {
-        "material": "${classes[highestProbIndex]} (Offline Prediction)",
-        "conditionFactor": 0.8,
-        "estimatedPricePerKg": basePrices[highestProbIndex],
-        "suggestedCategory": classes[highestProbIndex],
-        "estimatedVolumeLiters": 5,
-        "estimatedWeightKg": 1.5
+        'material': '$material (Offline Scan)',
+        'conditionFactor': (avgBright / 255).clamp(0.6, 0.95),
+        'estimatedPricePerKg': pricePerKg,
+        'suggestedCategory': category,
+        'estimatedVolumeLiters': 3,
+        'estimatedWeightKg': 1.2,
       };
     } catch (e) {
-      debugPrint('Offline AI Inference failed: $e');
-      throw Exception('Offline AI failed: $e');
+      debugPrint('Offline color analysis failed: $e');
+      // Last-resort fallback — return a safe generic result
+      return {
+        'material': 'Mixed Scrap (Offline Fallback)',
+        'conditionFactor': 0.7,
+        'estimatedPricePerKg': 10,
+        'suggestedCategory': 'Recyclable Plastics',
+        'estimatedVolumeLiters': 3,
+        'estimatedWeightKg': 1.0,
+      };
     }
   }
 }
