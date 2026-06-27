@@ -8,6 +8,7 @@ import '../../features/scan/prediction_screen.dart';
 import '../../features/tracking/tracking_screen.dart';
 import '../../features/chatbot/chatbot_screen.dart';
 import '../../features/donate/donate_screen.dart';
+import '../../features/donate/leaderboard_screen.dart';
 import '../../features/wallet/wallet_screen.dart';
 
 class AppRoutes {
@@ -62,6 +63,10 @@ class AppRoutes {
       GoRoute(
         path: '/wallet',
         builder: (context, state) => const WalletScreen(),
+      ),
+      GoRoute(
+        path: '/leaderboard',
+        builder: (context, state) => const LeaderboardScreen(),
       ),
       // Future routes will be added here
     ],

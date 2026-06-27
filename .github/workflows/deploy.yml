@@ -1,0 +1,84 @@
+name: ScrapKart CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  backend-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18.x'
+          
+      - name: Install dependencies
+        run: |
+          cd backend
+          npm ci
+          
+      # Add test scripts once you have tests written for your APIs
+      # - name: Run Tests
+      #   run: |
+      #     cd backend
+      #     npm test
+
+  flutter-user-app-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          
+      - name: Install dependencies
+        run: |
+          cd scrapkart_ai
+          flutter pub get
+          
+      - name: Verify formatting
+        run: |
+          cd scrapkart_ai
+          dart format --output=none --set-exit-if-changed .
+          
+      - name: Run Tests
+        run: |
+          cd scrapkart_ai
+          flutter test
+          
+      - name: Build Web App
+        run: |
+          cd scrapkart_ai
+          flutter build web --release
+          
+  flutter-collector-app-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          
+      - name: Install dependencies
+        run: |
+          cd scrapkart_collector
+          flutter pub get
+          
+      - name: Run Tests
+        run: |
+          cd scrapkart_collector
+          flutter test
+          
+      - name: Build Android APK
+        run: |
+          cd scrapkart_collector
+          flutter build apk --release

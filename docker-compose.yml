@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    container_name: scrapkart_backend
+    ports:
+      - "3000:3000"
+    environment:
+      - DB_HOST=db
+      - DB_USER=root
+      - DB_PASSWORD=rootpassword
+      - DB_NAME=scrapkart_db
+      - JWT_SECRET=supersecretjwtkey_for_scrapkart
+      - GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - scrapkart_network
+
+  db:
+    image: mysql:8.0
+    container_name: scrapkart_db
+    environment:
+      - MYSQL_ROOT_PASSWORD=rootpassword
+      - MYSQL_DATABASE=scrapkart_db
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - scrapkart_network
+
+volumes:
+  db_data:
+
+networks:
+  scrapkart_network:
+    driver: bridge

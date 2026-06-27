@@ -8,6 +8,8 @@ import '../../core/theme/text_styles.dart';
 import '../../core/widgets/glass_card.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../services/local_db_service.dart';
+import 'package:socket_io_client/socket_io_client.dart' as IO;
+import 'package:dio/dio.dart';
 
 class TrackingScreen extends StatefulWidget {
   final String? bookingId;
@@ -33,6 +35,8 @@ class _TrackingScreenState extends State<TrackingScreen> {
   double _progress = 0.0;
   String _eta = 'Fetching...';
   String _distance = 'Calculating...';
+  String? _otp;
+  IO.Socket? _socket;
 
   final List<Map<String, dynamic>> _collectors = [
     {'name': 'Rahul Sharma', 'rating': '4.8', 'phone': '+91 9876543210', 'vehicle': 'MH-15-AB-1234'},
@@ -51,6 +55,47 @@ class _TrackingScreenState extends State<TrackingScreen> {
   void initState() {
     super.initState();
     _initializeTracking();
+    _initSocket();
+  }
+
+  void _initSocket() {
+    // Connect to Node.js backend
+    _socket = IO.io('http://10.0.2.2:5000', <String, dynamic>{
+      'transports': ['websocket'],
+      'autoConnect': false,
+    });
+    
+    _socket?.connect();
+    
+    if (widget.bookingId != null) {
+      _socket?.emit('join_booking', widget.bookingId);
+    }
+    
+    _socket?.on('location_update', (data) {
+      if (mounted) {
+        setState(() {
+          _collectorLocation = LatLng(data['lat'], data['lng']);
+          // Recalculate progress/distance dynamically here in production
+        });
+      }
+    });
+  }
+
+  Future<void> _fetchOtp() async {
+    try {
+      if (widget.bookingId == null) return;
+      final dio = Dio();
+      final response = await dio.post('http://10.0.2.2:5000/api/booking/otp/generate', data: {
+        'bookingId': widget.bookingId,
+      });
+      if (response.data['success'] == true) {
+        setState(() {
+          _otp = response.data['otp'];
+        });
+      }
+    } catch (e) {
+      print('OTP fetch error: $e');
+    }
   }
 
   Future<void> _initializeTracking() async {
@@ -109,6 +154,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
         _distance = '3.2 km';
       });
 
+      await _fetchOtp();
       _startMovementSimulation();
     } else if (status == 'Assigned' || status == 'In Progress') {
       final collector = booking['collector'] != null
@@ -125,6 +171,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
         _distance = '3.2 km';
       });
 
+      await _fetchOtp();
       _startMovementSimulation();
     } else if (status == 'Completed') {
       final collector = booking['collector'] != null
@@ -365,6 +412,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
   @override
   void dispose() {
     _trackingTimer?.cancel();
+    _socket?.disconnect();
     super.dispose();
   }
 
@@ -472,6 +520,10 @@ class _TrackingScreenState extends State<TrackingScreen> {
                           const SizedBox(height: 16),
                           _buildCollectorInfo(),
                           const SizedBox(height: 16),
+                          if (_otp != null && _progress < 1.0) ...[
+                            _buildOtpDisplay(),
+                            const SizedBox(height: 16),
+                          ],
                           _buildStatsRow(),
                           const SizedBox(height: 20),
                           _buildActionButtons(),
@@ -559,6 +611,32 @@ class _TrackingScreenState extends State<TrackingScreen> {
           ],
         ),
       ],
+    );
+  }
+
+  Widget _buildOtpDisplay() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.security, color: AppColors.primary, size: 20),
+          const SizedBox(width: 8),
+          Text(
+            'Share this OTP with collector: ',
+            style: AppTextStyles.body.copyWith(fontSize: 12),
+          ),
+          Text(
+            _otp ?? '----',
+            style: AppTextStyles.title.copyWith(fontSize: 18, color: AppColors.primary, letterSpacing: 2),
+          ),
+        ],
+      ),
     );
   }
 

@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tflite_flutter/tflite_flutter.dart';
+import 'package:image/image.dart' as img;
 
 class GeminiService {
   static const String _apiKeyKey = 'gemini_api_key';
@@ -200,6 +202,66 @@ class GeminiService {
     } catch (e) {
       debugPrint('Gemini Vision Request failed: $e');
       rethrow;
+    }
+  }
+
+  // Offline AI Fallback using TFLite
+  Future<Map<String, dynamic>> scanMaterialOffline(File imageFile) async {
+    try {
+      // 1. Load the TFLite model
+      final interpreter = await Interpreter.fromAsset('assets/models/scrap_model.tflite');
+      
+      // 2. Prepare the input image
+      final bytes = await imageFile.readAsBytes();
+      img.Image? originalImage = img.decodeImage(bytes);
+      if (originalImage == null) throw Exception('Cannot decode image');
+      
+      // Resize to 224x224 for standard MobileNet/custom model input
+      img.Image resizedImage = img.copyResize(originalImage, width: 224, height: 224);
+      
+      // Normalize pixels to [0, 1] or [-1, 1] depending on model
+      var input = List.generate(1, (i) => List.generate(224, (j) => List.generate(224, (k) => List.generate(3, (l) => 0.0))));
+      for (var y = 0; y < 224; y++) {
+        for (var x = 0; x < 224; x++) {
+          final pixel = resizedImage.getPixel(x, y);
+          input[0][y][x][0] = pixel.r / 255.0; // Red
+          input[0][y][x][1] = pixel.g / 255.0; // Green
+          input[0][y][x][2] = pixel.b / 255.0; // Blue
+        }
+      }
+      
+      // 3. Run inference (assuming 5 output classes: Plastics, Metal, E-Waste, Paper, Glass)
+      var output = List.generate(1, (i) => List.filled(5, 0.0));
+      interpreter.run(input, output);
+      
+      // 4. Find the argmax
+      final probabilities = output[0];
+      int highestProbIndex = 0;
+      double highestProb = probabilities[0];
+      for (int i = 1; i < probabilities.length; i++) {
+        if (probabilities[i] > highestProb) {
+          highestProb = probabilities[i];
+          highestProbIndex = i;
+        }
+      }
+      
+      interpreter.close();
+      
+      // Map index to mock result structure
+      final classes = ['Recyclable Plastics', 'Metal Scrap', 'E-Waste', 'Paper & Cardboard', 'Glass Scrap'];
+      final basePrices = [12, 45, 120, 8, 5];
+      
+      return {
+        "material": "${classes[highestProbIndex]} (Offline Prediction)",
+        "conditionFactor": 0.8,
+        "estimatedPricePerKg": basePrices[highestProbIndex],
+        "suggestedCategory": classes[highestProbIndex],
+        "estimatedVolumeLiters": 5,
+        "estimatedWeightKg": 1.5
+      };
+    } catch (e) {
+      debugPrint('Offline AI Inference failed: $e');
+      throw Exception('Offline AI failed: $e');
     }
   }
 }

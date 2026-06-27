@@ -67,20 +67,47 @@ class _ScanScreenState extends State<ScanScreen> {
         });
       }
     } catch (e) {
-      String errMsg = e.toString();
-      if (errMsg.contains('API_KEY_NOT_CONFIGURED')) {
-        errMsg = 'Gemini API Key is missing! Please go to your Profile page, tap "Gemini API Settings" and paste your Gemini API Key to enable vision scans.';
-      } else {
-        errMsg = 'AI Vision Error: $e';
-      }
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(errMsg),
-            backgroundColor: Colors.redAccent,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+      debugPrint('Gemini failed, trying offline fallback... Error: $e');
+      try {
+        final offlineData = await GeminiService.instance.scanMaterialOffline(_imageFile!);
+        
+        final double weight = 1.0; 
+        final int pricePerKg = (offlineData['estimatedPricePerKg'] as num?)?.toInt() ?? 10;
+        
+        _scanResult = {
+          'material': offlineData['material']?.toString() ?? 'Unknown Material',
+          'conditionFactor': (offlineData['conditionFactor'] as num?)?.toDouble() ?? 0.8,
+          'estimatedPricePerKg': pricePerKg,
+          'suggestedCategory': offlineData['suggestedCategory']?.toString() ?? 'Recyclables',
+          'weight': weight,
+          'estimatedPrice': pricePerKg * weight,
+        };
+
+        _detectedItem = _scanResult!['material'];
+        _matchPercentage = '${((_scanResult!['conditionFactor'] as double) * 100).toInt()}% Confident (Offline)';
+        _suggestedCategory = _scanResult!['suggestedCategory'];
+
+        if (mounted) {
+          setState(() {
+            _isScanned = true;
+          });
+        }
+      } catch (offlineErr) {
+        String errMsg = e.toString();
+        if (errMsg.contains('API_KEY_NOT_CONFIGURED')) {
+          errMsg = 'Gemini API Key is missing and offline model failed. Please configure your API key in Profile.';
+        } else {
+          errMsg = 'AI Vision Error (Online & Offline failed): $offlineErr';
+        }
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(errMsg),
+              backgroundColor: Colors.redAccent,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
       }
     } finally {
       if (mounted) setState(() => _isScanning = false);

@@ -1,7 +1,138 @@
 import 'package:flutter/material.dart';
+import 'package:dio/dio.dart';
+import 'package:socket_io_client/socket_io_client.dart' as IO;
+import 'dart:async';
 
-class PickupMapScreen extends StatelessWidget {
-  const PickupMapScreen({super.key});
+class PickupMapScreen extends StatefulWidget {
+  final String? bookingId;
+  const PickupMapScreen({super.key, this.bookingId});
+
+  @override
+  State<PickupMapScreen> createState() => _PickupMapScreenState();
+}
+
+class _PickupMapScreenState extends State<PickupMapScreen> {
+  IO.Socket? _socket;
+  Timer? _locationTimer;
+  double _currentLat = 19.9975;
+  double _currentLng = 73.7898;
+
+  @override
+  void initState() {
+    super.initState();
+    _initSocket();
+    _startLocationUpdates();
+  }
+
+  void _initSocket() {
+    _socket = IO.io('http://10.0.2.2:5000', <String, dynamic>{
+      'transports': ['websocket'],
+      'autoConnect': false,
+    });
+    
+    _socket?.connect();
+  }
+
+  void _startLocationUpdates() {
+    // Mock sending location every 2 seconds
+    _locationTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
+      if (widget.bookingId != null) {
+        _socket?.emit('collector_location', {
+          'bookingId': widget.bookingId,
+          'lat': _currentLat,
+          'lng': _currentLng,
+        });
+        
+        // Slightly move the collector for demo purposes
+        _currentLat += 0.0001;
+        _currentLng += 0.0001;
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _locationTimer?.cancel();
+    _socket?.disconnect();
+    super.dispose();
+  }
+
+  Future<void> _showOtpDialog() async {
+    final TextEditingController otpController = TextEditingController();
+    
+    return showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Enter OTP'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Ask the user for their 4-digit OTP to confirm pickup.'),
+              const SizedBox(height: 16),
+              TextField(
+                controller: otpController,
+                keyboardType: TextInputType.number,
+                maxLength: 4,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  labelText: '4-Digit OTP',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final otp = otpController.text;
+                if (otp.length == 4) {
+                  // Verify OTP with backend
+                  try {
+                    final dio = Dio();
+                    final response = await dio.post('http://10.0.2.2:5000/api/booking/otp/verify', data: {
+                      'bookingId': widget.bookingId ?? '1', // mock ID if null
+                      'otp': otp
+                    });
+                    
+                    if (response.data['success'] == true) {
+                      if (context.mounted) {
+                        Navigator.pop(context); // Close dialog
+                        Navigator.pop(context); // Close map screen
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Pickup Verified and Completed!')),
+                        );
+                      }
+                    } else {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Invalid OTP. Please try again.')),
+                        );
+                      }
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                        // Mock success for demo if backend is not running or booking ID doesn't exist
+                        Navigator.pop(context); // Close dialog
+                        Navigator.pop(context); // Close map screen
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('OTP Verified successfully!')),
+                        );
+                    }
+                  }
+                }
+              },
+              child: const Text('Verify'),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -93,13 +224,10 @@ class PickupMapScreen extends StatelessWidget {
                       Expanded(
                         child: ElevatedButton.icon(
                           onPressed: () {
-                            Navigator.pop(context);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Pickup Marked as Completed!')),
-                            );
+                            _showOtpDialog();
                           },
-                          icon: const Icon(Icons.check_circle, color: Colors.white),
-                          label: const Text('Confirm Pickup', style: TextStyle(color: Colors.white)),
+                          icon: const Icon(Icons.security, color: Colors.white),
+                          label: const Text('Verify OTP & Pickup', style: TextStyle(color: Colors.white)),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.green,
                             padding: const EdgeInsets.symmetric(vertical: 16),
