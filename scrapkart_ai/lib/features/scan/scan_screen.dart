@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/text_styles.dart';
 import '../../core/widgets/glass_card.dart';
+import '../../services/gemini_service.dart';
 
 class ScanScreen extends StatefulWidget {
   const ScanScreen({super.key});
@@ -42,19 +43,23 @@ class _ScanScreenState extends State<ScanScreen> {
     });
 
     try {
-      await Future.delayed(const Duration(seconds: 2)); // Simulate network request
+      final data = await GeminiService.instance.scanMaterial(_imageFile!);
       
-      // Dummy Response for Testing
-      final data = {
-        'material': 'DUMMY_PLASTIC_BOTTLE (PET)',
-        'conditionFactor': 0.85,
-        'estimatedPricePerKg': 15,
+      final double weight = 1.0; // Default weight unit
+      final int pricePerKg = (data['estimatedPricePerKg'] as num?)?.toInt() ?? 15;
+      
+      _scanResult = {
+        'material': data['material']?.toString() ?? 'Unknown Material',
+        'conditionFactor': (data['conditionFactor'] as num?)?.toDouble() ?? 0.8,
+        'estimatedPricePerKg': pricePerKg,
+        'suggestedCategory': data['suggestedCategory']?.toString() ?? 'Recyclables',
+        'weight': weight,
+        'estimatedPrice': pricePerKg * weight,
       };
 
-      _scanResult = data;
-      _detectedItem = data['material']?.toString() ?? 'Unknown';
-      _matchPercentage = '${(((data['conditionFactor'] as num?) ?? 0.5) * 100).toInt()}% Confident';
-      _suggestedCategory = 'Recyclable Plastics';
+      _detectedItem = _scanResult!['material'];
+      _matchPercentage = '${((_scanResult!['conditionFactor'] as double) * 100).toInt()}% Confident';
+      _suggestedCategory = _scanResult!['suggestedCategory'];
 
       if (mounted) {
         setState(() {
@@ -62,9 +67,19 @@ class _ScanScreenState extends State<ScanScreen> {
         });
       }
     } catch (e) {
+      String errMsg = e.toString();
+      if (errMsg.contains('API_KEY_NOT_CONFIGURED')) {
+        errMsg = 'Gemini API Key is missing! Please go to your Profile page, tap "Gemini API Settings" and paste your Gemini API Key to enable vision scans.';
+      } else {
+        errMsg = 'AI Vision Error: $e';
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('AI Vision Error: $e')),
+          SnackBar(
+            content: Text(errMsg),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
     } finally {
@@ -75,7 +90,7 @@ class _ScanScreenState extends State<ScanScreen> {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24.0),
+      padding: const EdgeInsets.only(left: 24.0, right: 24.0, top: 24.0, bottom: 120.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -120,7 +135,7 @@ class _ScanScreenState extends State<ScanScreen> {
                               Container(
                                 padding: const EdgeInsets.all(24),
                                 decoration: BoxDecoration(
-                                  color: AppColors.primary.withOpacity(0.1),
+                                  color: AppColors.primary.withValues(alpha: 0.1),
                                   shape: BoxShape.circle,
                                 ),
                                 child: const Icon(Icons.camera_alt_rounded, size: 60, color: AppColors.primary),
@@ -152,7 +167,7 @@ class _ScanScreenState extends State<ScanScreen> {
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: AppColors.secondary.withOpacity(0.2),
+                              color: AppColors.secondary.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: const Icon(Icons.recycling, color: AppColors.secondary),
@@ -170,7 +185,7 @@ class _ScanScreenState extends State<ScanScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: Colors.green.withOpacity(0.1),
+                          color: Colors.green.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(

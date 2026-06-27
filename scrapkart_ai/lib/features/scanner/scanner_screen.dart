@@ -9,7 +9,7 @@ class ScannerScreen extends StatefulWidget {
   const ScannerScreen({super.key});
 
   @override
-  _ScannerScreenState createState() => _ScannerScreenState();
+  State<ScannerScreen> createState() => _ScannerScreenState();
 }
 
 class _ScannerScreenState extends State<ScannerScreen> {
@@ -126,7 +126,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
             blurRadius: 15,
           ),
           BoxShadow(
-            color: Colors.grey.withOpacity(0.5),
+            color: Colors.grey.withValues(alpha: 0.5),
             offset: const Offset(8, 8),
             blurRadius: 15,
           ),
@@ -188,7 +188,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
               blurRadius: 10,
             ),
             BoxShadow(
-              color: Colors.grey.withOpacity(0.5),
+              color: Colors.grey.withValues(alpha: 0.5),
               offset: const Offset(5, 5),
               blurRadius: 10,
             ),
@@ -219,7 +219,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
             blurRadius: 10,
           ),
           BoxShadow(
-            color: Colors.grey.withOpacity(0.4),
+            color: Colors.grey.withValues(alpha: 0.4),
             offset: const Offset(5, 5),
             blurRadius: 10,
           ),

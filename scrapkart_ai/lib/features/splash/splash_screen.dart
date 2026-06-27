@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/text_styles.dart';
 import '../../core/widgets/animated_blob_background.dart';
+import '../../services/local_db_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -16,11 +17,20 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) {
-        context.go('/onboarding');
-      }
-    });
+    _navigateToNext();
+  }
+
+  Future<void> _navigateToNext() async {
+    await Future.delayed(const Duration(seconds: 3));
+    if (!mounted) return;
+
+    final isLoggedIn = await LocalDbService.instance.isUserLoggedIn();
+    if (!mounted) return;
+    if (isLoggedIn) {
+      context.go('/home');
+    } else {
+      context.go('/onboarding');
+    }
   }
 
   @override
@@ -36,10 +46,10 @@ class _SplashScreenState extends State<SplashScreen> {
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Colors.white.withOpacity(0.8),
+                  color: Colors.white.withValues(alpha: 0.8),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.primary.withOpacity(0.4),
+                      color: AppColors.primary.withValues(alpha: 0.4),
                       blurRadius: 40,
                       spreadRadius: 10,
                     ),
@@ -73,7 +83,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 'Smart Waste Intelligence',
                 style: AppTextStyles.subtitle.copyWith(
                   letterSpacing: 1.5,
-                  color: AppColors.textSecondary.withOpacity(0.8),
+                  color: AppColors.textSecondary.withValues(alpha: 0.8),
                 ),
               ).animate().slideY(begin: 1.0, end: 0, duration: 600.ms, delay: 400.ms, curve: Curves.easeOutQuad)
                .fadeIn(delay: 400.ms),

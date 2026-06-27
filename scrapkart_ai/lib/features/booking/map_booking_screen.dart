@@ -9,7 +9,7 @@ class MapBookingScreen extends StatefulWidget {
   const MapBookingScreen({super.key});
 
   @override
-  _MapBookingScreenState createState() => _MapBookingScreenState();
+  State<MapBookingScreen> createState() => _MapBookingScreenState();
 }
 
 class _MapBookingScreenState extends State<MapBookingScreen> {
@@ -55,7 +55,7 @@ class _MapBookingScreenState extends State<MapBookingScreen> {
 
     // Ping device OS
     final Position position = await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.high
+      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
     );
 
     setState(() {
@@ -178,7 +178,7 @@ class _MapBookingScreenState extends State<MapBookingScreen> {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             const BoxShadow(color: Colors.white, offset: Offset(-8, -8), blurRadius: 15),
-            BoxShadow(color: Colors.grey.withOpacity(0.5), offset: const Offset(8, 8), blurRadius: 15),
+            BoxShadow(color: Colors.grey.withValues(alpha: 0.5), offset: const Offset(8, 8), blurRadius: 15),
           ],
         ),
         child: Column(
@@ -207,7 +207,7 @@ class _MapBookingScreenState extends State<MapBookingScreen> {
            borderRadius: BorderRadius.circular(15),
            boxShadow: [
              const BoxShadow(color: Colors.white, offset: Offset(-5, -5), blurRadius: 10),
-             BoxShadow(color: Colors.grey.withOpacity(0.4), offset: const Offset(5, 5), blurRadius: 10),
+             BoxShadow(color: Colors.grey.withValues(alpha: 0.4), offset: const Offset(5, 5), blurRadius: 10),
            ],
          ),
          child: Center(

@@ -13,7 +13,7 @@ class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
 
   @override
-  _ChatScreenState createState() => _ChatScreenState();
+  State<ChatScreen> createState() => _ChatScreenState();
 }
 
 class _ChatScreenState extends State<ChatScreen> {
@@ -151,7 +151,7 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
         decoration: BoxDecoration(
-          color: message.isUser ? _accentColor.withOpacity(0.1) : _baseColor,
+          color: message.isUser ? _accentColor.withValues(alpha: 0.1) : _baseColor,
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(20),
             topRight: const Radius.circular(20),
@@ -163,7 +163,7 @@ class _ChatScreenState extends State<ChatScreen> {
             if (!message.isUser)
              const BoxShadow(color: Colors.white, offset: Offset(-5, -5), blurRadius: 10),
             if (!message.isUser)
-             BoxShadow(color: Colors.grey.withOpacity(0.4), offset: const Offset(5, 5), blurRadius: 10),
+             BoxShadow(color: Colors.grey.withValues(alpha: 0.4), offset: const Offset(5, 5), blurRadius: 10),
           ],
         ),
         child: Text(
@@ -187,7 +187,7 @@ class _ChatScreenState extends State<ChatScreen> {
         boxShadow: [
           // Render inputs distinctly indented utilizing reverse-shadow logic
           const BoxShadow(color: Colors.white, offset: Offset(-3, -3), blurRadius: 8),
-          BoxShadow(color: Colors.grey.withOpacity(0.5), offset: const Offset(3, 3), blurRadius: 8),
+          BoxShadow(color: Colors.grey.withValues(alpha: 0.5), offset: const Offset(3, 3), blurRadius: 8),
         ],
       ),
       child: Row(
@@ -215,7 +215,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 color: Colors.blueAccent,
                 shape: BoxShape.circle,
                 boxShadow: [
-                  BoxShadow(color: Colors.blueAccent.withOpacity(0.4), blurRadius: 8, offset: const Offset(2, 2)),
+                  BoxShadow(color: Colors.blueAccent.withValues(alpha: 0.4), blurRadius: 8, offset: const Offset(2, 2)),
                 ]
               ),
               child: const Icon(Icons.send, color: Colors.white, size: 20),

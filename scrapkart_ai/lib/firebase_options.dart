@@ -57,22 +57,22 @@ class DefaultFirebaseOptions {
     projectId: 'scrapkart-ai',
     storageBucket: 'scrapkart-ai.firebasestorage.app',
   );
-
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyBTJbSw4Rsg2k-J7eHbew22J_Qtqwuwusc',
     appId: '1:157881672459:ios:d22d4784031d7ac470380e',
     messagingSenderId: '157881672459',
     projectId: 'scrapkart-ai',
     storageBucket: 'scrapkart-ai.firebasestorage.app',
+    iosClientId: '157881672459-8489gquv27f3o8dk62qef08vf93paae0.apps.googleusercontent.com',
     iosBundleId: 'com.scrapkart.scrapkartAi',
   );
-
   static const FirebaseOptions macos = FirebaseOptions(
     apiKey: 'AIzaSyBTJbSw4Rsg2k-J7eHbew22J_Qtqwuwusc',
     appId: '1:157881672459:ios:d22d4784031d7ac470380e',
     messagingSenderId: '157881672459',
     projectId: 'scrapkart-ai',
     storageBucket: 'scrapkart-ai.firebasestorage.app',
+    iosClientId: '157881672459-8489gquv27f3o8dk62qef08vf93paae0.apps.googleusercontent.com',
     iosBundleId: 'com.scrapkart.scrapkartAi',
   );
 

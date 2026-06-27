@@ -20,7 +20,7 @@ class AppTheme {
             borderRadius: BorderRadius.circular(20),
           ),
           elevation: 5,
-          shadowColor: AppColors.primary.withOpacity(0.5),
+          shadowColor: AppColors.primary.withValues(alpha: 0.5),
         ),
       ),
     );

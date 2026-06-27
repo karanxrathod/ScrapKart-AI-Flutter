@@ -4,6 +4,7 @@ import '../../core/widgets/animated_blob_background.dart';
 import '../home/home_screen.dart';
 import '../scan/scan_screen.dart';
 import '../profile/profile_screen.dart';
+import '../booking/bookings_list_screen.dart';
 import 'package:go_router/go_router.dart';
 
 class MainScreen extends StatefulWidget {
@@ -27,8 +28,12 @@ class _MainScreenState extends State<MainScreen> {
         onScanTap: () => setState(() => _currentIndex = 1),
       ),
       const ScanScreen(),
-      const Center(child: Text('Orders Screen')), // Placeholder
-      const ProfileScreen(),
+      BookingsListScreen(
+        onNewBookingTap: () => setState(() => _currentIndex = 1),
+      ),
+      ProfileScreen(
+        onOrderHistoryTap: () => setState(() => _currentIndex = 2),
+      ),
     ];
   }
 
@@ -60,11 +65,11 @@ class _MainScreenState extends State<MainScreen> {
     return Container(
       margin: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.8),
+        color: Colors.white.withValues(alpha: 0.8),
         borderRadius: BorderRadius.circular(30),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withOpacity(0.1),
+            color: AppColors.primary.withValues(alpha: 0.1),
             blurRadius: 20,
             offset: const Offset(0, 5),
           ),
@@ -79,7 +84,7 @@ class _MainScreenState extends State<MainScreen> {
           elevation: 0,
           type: BottomNavigationBarType.fixed,
           selectedItemColor: AppColors.primary,
-          unselectedItemColor: AppColors.textSecondary.withOpacity(0.5),
+          unselectedItemColor: AppColors.textSecondary.withValues(alpha: 0.5),
           showSelectedLabels: false,
           showUnselectedLabels: false,
           items: const [

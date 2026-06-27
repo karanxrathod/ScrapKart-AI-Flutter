@@ -6,30 +6,30 @@ import 'firebase_options.dart';
 import 'core/theme/app_theme.dart';
 import 'core/utils/app_routes.dart';
 
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-
-  // Set up global error handling
-  FlutterError.onError = (FlutterErrorDetails details) {
-    FlutterError.presentError(details);
-    if (kReleaseMode) {
-      // In production, you would send this to Crashlytics
-    } else {
-      debugPrint('Flutter Error: ${details.exception}');
-    }
-  };
-
-  PlatformDispatcher.instance.onError = (error, stack) {
-    if (kReleaseMode) {
-      // Send async errors to Crashlytics
-    } else {
-      debugPrint('Async Error: $error\n$stack');
-    }
-    return true;
-  };
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    // Initialize Crashlytics
+    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+    PlatformDispatcher.instance.onError = (error, stack) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      return true;
+    };
+    
+    // Initialize Firebase Messaging
+    final messaging = FirebaseMessaging.instance;
+    await messaging.requestPermission();
+    
+    debugPrint('Firebase, Crashlytics & FCM initialized successfully.');
+  } catch (e) {
+    debugPrint('Firebase initialization failed: $e. Running in standalone local storage mode.');
+  }
 
   runApp(
     const ProviderScope(

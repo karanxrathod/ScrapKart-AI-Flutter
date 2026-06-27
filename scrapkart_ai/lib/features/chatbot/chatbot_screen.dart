@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/text_styles.dart';
 import '../../core/widgets/animated_blob_background.dart';
+import '../../services/gemini_service.dart';
 
 class ChatbotScreen extends StatefulWidget {
   const ChatbotScreen({super.key});
@@ -37,26 +38,27 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     _scrollToBottom();
 
     try {
-      // Add timeout layer to represent robust backend communication
-      await Future.delayed(const Duration(seconds: 1)).timeout(
-        const Duration(seconds: 15),
-        onTimeout: () => throw Exception('Connection timeout. Please try again.'),
+      final history = List<Map<String, dynamic>>.from(_messages)..removeLast();
+      final aiReply = await GeminiService.instance.getChatResponse(
+        message: text,
+        conversationHistory: history,
       );
-      
-      // Dummy Response for Testing
-      String aiReply = "I am a dummy AI. You said: '$text'";
-      if (text.toLowerCase().contains('hi') || text.toLowerCase().contains('hello')) {
-        aiReply = 'Hello! I am ready to help you with your scrap queries.';
-      } else if (text.toLowerCase().contains('price') || text.toLowerCase().contains('much')) {
-        aiReply = 'The price of scrap varies. Typically, plastic is around ₹15/kg, and metal is ₹40/kg.';
-      }
       
       setState(() {
         _messages.add({'text': aiReply, 'isMe': false});
       });
     } catch (e) {
+      String errMsg = e.toString();
+      if (errMsg.contains('API_KEY_NOT_CONFIGURED')) {
+        errMsg = 'API Key is not configured yet! Please go to your Profile page, tap "Gemini API Settings" and paste your Gemini API Key to talk with the AI assistant.';
+      } else {
+        errMsg = 'Failed to get a response: $e';
+      }
       setState(() {
-        _messages.add({'text': 'Server connection failed! Please ensure you have an active internet connection. Details: $e', 'isMe': false});
+        _messages.add({
+          'text': errMsg, 
+          'isMe': false
+        });
       });
     } finally {
       setState(() {
@@ -85,7 +87,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       appBar: AppBar(
         title: Text('AI Assistant', style: AppTextStyles.title),
         centerTitle: true,
-        backgroundColor: Colors.white.withOpacity(0.5),
+        backgroundColor: Colors.white.withValues(alpha: 0.5),
         elevation: 0,
       ),
       body: AnimatedBlobBackground(
@@ -125,11 +127,11 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.5),
+                color: Colors.white.withValues(alpha: 0.5),
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.primary.withOpacity(0.1),
+                    color: AppColors.primary.withValues(alpha: 0.1),
                     blurRadius: 20,
                     offset: const Offset(0, -5),
                   ),
@@ -142,7 +144,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: AppColors.tertiary.withOpacity(0.3)),
+                        border: Border.all(color: AppColors.tertiary.withValues(alpha: 0.3)),
                       ),
                       child: Semantics(
                         label: 'Chat message input',
@@ -186,7 +188,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         decoration: BoxDecoration(
-          color: isMe ? AppColors.primary : Colors.white.withOpacity(0.8),
+          color: isMe ? AppColors.primary : Colors.white.withValues(alpha: 0.8),
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(20),
             topRight: const Radius.circular(20),
@@ -195,7 +197,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 10,
               offset: const Offset(0, 5),
             ),

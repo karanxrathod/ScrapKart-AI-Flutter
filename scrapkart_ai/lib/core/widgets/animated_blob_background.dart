@@ -44,21 +44,21 @@ class _AnimatedBlobBackgroundState extends State<AnimatedBlobBackground>
                       sin(_controller.value * 2 * pi) * 20,
                   left: MediaQuery.of(context).size.width * 0.1 +
                       cos(_controller.value * 2 * pi) * 20,
-                  child: _buildBlob(AppColors.secondary.withOpacity(0.3), 200),
+                  child: _buildBlob(AppColors.secondary.withValues(alpha: 0.3), 200),
                 ),
                 Positioned(
                   top: MediaQuery.of(context).size.height * 0.5 +
                       cos(_controller.value * 2 * pi) * 30,
                   right: MediaQuery.of(context).size.width * 0.1 +
                       sin(_controller.value * 2 * pi) * 30,
-                  child: _buildBlob(AppColors.tertiary.withOpacity(0.3), 250),
+                  child: _buildBlob(AppColors.tertiary.withValues(alpha: 0.3), 250),
                 ),
                 Positioned(
                   bottom: MediaQuery.of(context).size.height * 0.1 -
                       sin(_controller.value * 2 * pi) * 20,
                   left: MediaQuery.of(context).size.width * 0.2 -
                       cos(_controller.value * 2 * pi) * 20,
-                  child: _buildBlob(AppColors.accent.withOpacity(0.3), 180),
+                  child: _buildBlob(AppColors.accent.withValues(alpha: 0.3), 180),
                 ),
               ],
             );
@@ -67,7 +67,7 @@ class _AnimatedBlobBackgroundState extends State<AnimatedBlobBackground>
         // Glass overlay to make everything smooth
         Positioned.fill(
           child: Container(
-            color: Colors.white.withOpacity(0.1),
+            color: Colors.white.withValues(alpha: 0.1),
           ),
         ),
         SafeArea(child: widget.child),
@@ -84,7 +84,7 @@ class _AnimatedBlobBackgroundState extends State<AnimatedBlobBackground>
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
-            color: color.withOpacity(0.5),
+            color: color.withValues(alpha: 0.5),
             blurRadius: size / 2,
             spreadRadius: size / 4,
           ),

@@ -1,181 +1,199 @@
-import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:http/http.dart' as http;
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // URL for the Node.js backend. Use 10.213.229.69 instead of localhost for Android Emulator.
-  final String _backendUrl = 'http://10.213.229.69:3000/api/auth/sync';
+  // Sign in as Guest
+  Future<UserCredential> signInAsGuest() async {
+    try {
+      return await _auth.signInAnonymously();
+    } catch (e) {
+      throw Exception('Failed to sign in as guest: ${e.toString()}');
+    }
+  }
 
-  // 1. Sign Up with Email & Password
-  Future<UserCredential?> signUpWithEmail({
+  // Sign up with Email and Password
+  Future<UserCredential> signUpWithEmail({
     required String name,
     required String email,
     required String password,
-    String role = 'User', // Allows assigning 'Collector' later dynamically
+    required String role,
   }) async {
     try {
-      final UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
+      UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
 
-      // Update Firebase Display Name
+      // Update display name
       await userCredential.user?.updateDisplayName(name);
 
-      // Sync the user with our MySQL Node.js backend
+      // Save user details to Firestore
       if (userCredential.user != null) {
-        await _syncUserToBackend(
-          uid: userCredential.user!.uid,
-          name: name,
-          email: email,
-          role: role,
-        );
+        await _firestore.collection('users').doc(userCredential.user!.uid).set({
+          'uid': userCredential.user!.uid,
+          'name': name,
+          'email': email,
+          'role': role,
+          'treesSaved': 0.0,
+          'co2SavedKg': 0.0,
+          'points': 0,
+          'badges': [],
+          'createdAt': FieldValue.serverTimestamp(),
+        });
       }
+
       return userCredential;
     } on FirebaseAuthException catch (e) {
-      _handleAuthError(e);
-      return null;
+      throw Exception(_handleAuthError(e.code));
     } catch (e) {
-      debugPrint('Unexpected Sign Up error: $e');
-      throw Exception('An unexpected error occurred. Please try again.');
+      throw Exception('Failed to sign up: ${e.toString()}');
     }
   }
 
-  // 2. Login with Email & Password
-  Future<UserCredential?> loginWithEmail({
+  // Sign in with Email and Password
+  Future<UserCredential> signInWithEmail({
     required String email,
     required String password,
   }) async {
     try {
-      final UserCredential userCredential = await _auth.signInWithEmailAndPassword(
+      return await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
-      
-      // Optionally sync to ensure DB holds the latest email/name references if needed
-      if (userCredential.user != null) {
-        await _syncUserToBackend(
-          uid: userCredential.user!.uid,
-          name: userCredential.user!.displayName ?? 'ScrapKart User',
-          email: userCredential.user!.email!,
-        );
-      }
-      return userCredential;
     } on FirebaseAuthException catch (e) {
-      _handleAuthError(e);
-      return null;
+      throw Exception(_handleAuthError(e.code));
     } catch (e) {
-      debugPrint('Unexpected Login error: $e');
-      throw Exception('An unexpected error occurred. Please try again.');
+      throw Exception('Failed to sign in: ${e.toString()}');
     }
   }
 
-  // 3. Google Sign-In
-  Future<UserCredential?> signInWithGoogle({String role = 'User'}) async {
+  // Google Sign-In
+  Future<UserCredential> signInWithGoogle() async {
     try {
-      // Begin Google Auth flow
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) return null; // Early abort if user cancelled
+      final googleSignIn = GoogleSignIn.instance;
+      // Initialize if needed, though usually handled by Android/iOS config if not provided explicitly
+      try {
+        await googleSignIn.initialize();
+      } catch (e) {
+        // Initialization might fail if already initialized, ignore
+      }
+      
+      final GoogleSignInAccount googleUser = await googleSignIn.authenticate();
 
-      final GoogleSignInAuthentication googleAuth = googleUser.authentication;
-
-      // Authenticate with Firebase using Google credentials
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
       final OAuthCredential credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
-      final UserCredential userCredential = await _auth.signInWithCredential(credential);
-
-      // Sync the Google user directly to MySQL Node.js backend
+      final userCredential = await _auth.signInWithCredential(credential);
+      
+      // Save user details to Firestore if new
       if (userCredential.user != null) {
-        await _syncUserToBackend(
-          uid: userCredential.user!.uid,
-          name: userCredential.user!.displayName ?? googleUser.displayName ?? 'Google User',
-          email: userCredential.user!.email ?? googleUser.email,
-          role: role,
-        );
+        final doc = await _firestore.collection('users').doc(userCredential.user!.uid).get();
+        if (!doc.exists) {
+          await _firestore.collection('users').doc(userCredential.user!.uid).set({
+            'uid': userCredential.user!.uid,
+            'name': userCredential.user!.displayName ?? 'User',
+            'email': userCredential.user!.email ?? '',
+            'role': 'User',
+            'treesSaved': 0.0,
+            'co2SavedKg': 0.0,
+            'points': 0,
+            'badges': [],
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+        }
       }
-
       return userCredential;
     } on FirebaseAuthException catch (e) {
-      _handleAuthError(e);
-      return null;
+      throw Exception(_handleAuthError(e.code));
     } catch (e) {
-      debugPrint('Unexpected Google Sign In error: $e');
-      throw Exception('Failed to sign in with Google. Check your network.');
+      throw Exception('Failed to sign in with Google: ${e.toString()}');
     }
   }
 
-  // 4. Log out
-  Future<void> logOut() async {
-    try {
-      await _googleSignIn.signOut();
-      await _auth.signOut();
-    } catch (e) {
-      debugPrint('Error during logout: $e');
-      throw Exception('Logout failed.');
-    }
+  // Phone Auth Verification
+  Future<void> verifyPhoneNumber({
+    required String phoneNumber,
+    required Function(String verificationId) codeSent,
+    required Function(String error) verificationFailed,
+  }) async {
+    await _auth.verifyPhoneNumber(
+      phoneNumber: phoneNumber,
+      verificationCompleted: (PhoneAuthCredential credential) async {
+        await _auth.signInWithCredential(credential);
+      },
+      verificationFailed: (FirebaseAuthException e) {
+        verificationFailed(e.message ?? 'Verification failed');
+      },
+      codeSent: (String verificationId, int? resendToken) {
+        codeSent(verificationId);
+      },
+      codeAutoRetrievalTimeout: (String verificationId) {},
+    );
   }
 
-  // Helper method: API hit to sync User to MySQL Backend 
-  Future<void> _syncUserToBackend({
-    required String uid,
-    required String name,
-    required String email,
-    String? role,
+  // Verify OTP
+  Future<UserCredential> verifyOTP({
+    required String verificationId,
+    required String smsCode,
   }) async {
     try {
-      final response = await http.post(
-        Uri.parse(_backendUrl),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'uid': uid,
-          'name': name,
-          'email': email,
-          'role': ?role,
-        }),
+      PhoneAuthCredential credential = PhoneAuthProvider.credential(
+        verificationId: verificationId,
+        smsCode: smsCode,
       );
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        debugPrint('✅ User successfully synced with MySQL database!');
-      } else {
-        debugPrint('❌ Failed to sync. Node status code: ${response.statusCode}');
-        debugPrint('❌ Response: ${response.body}');
-        throw Exception('Failed to sync user database on backend.');
+      final userCredential = await _auth.signInWithCredential(credential);
+      
+      if (userCredential.user != null) {
+        final doc = await _firestore.collection('users').doc(userCredential.user!.uid).get();
+        if (!doc.exists) {
+          await _firestore.collection('users').doc(userCredential.user!.uid).set({
+            'uid': userCredential.user!.uid,
+            'name': 'Phone User',
+            'phone': userCredential.user!.phoneNumber,
+            'role': 'User',
+            'treesSaved': 0.0,
+            'co2SavedKg': 0.0,
+            'points': 0,
+            'badges': [],
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+        }
       }
+      return userCredential;
     } catch (e) {
-      debugPrint('❌ Network error syncing user backend: $e');
-      // We log but generally do not crash user experience if syncing fails network-wise
-      // You may consider background retries in a full production system.
-      throw Exception('Network error: Cannot reach the backend API.');
+      throw Exception('Failed to verify OTP: ${e.toString()}');
     }
   }
 
-  // Helper method: Error Decoding for User Experience
-  void _handleAuthError(FirebaseAuthException e) {
-    debugPrint('Firebase Auth Error [${e.code}]: ${e.message}');
-    switch (e.code) {
+  // Sign Out
+  Future<void> signOut() async {
+    await _auth.signOut();
+    try {
+      await GoogleSignIn.instance.signOut();
+    } catch (_) {}
+  }
+
+  // Map Firebase errors to user-friendly messages
+  String _handleAuthError(String code) {
+    switch (code) {
+      case 'weak-password':
+        return 'The password provided is too weak.';
+      case 'email-already-in-use':
+        return 'The account already exists for that email.';
       case 'user-not-found':
-        throw Exception('No user found matching this email.');
       case 'wrong-password':
       case 'invalid-credential':
-        throw Exception('Invalid email or password.');
-      case 'email-already-in-use':
-        throw Exception('An account already exists for this email.');
+        return 'Invalid email or password.';
       case 'invalid-email':
-        throw Exception('This email address gets formatted incorrectly.');
-      case 'user-disabled':
-        throw Exception('Your account is currently disabled by Admin.');
-      case 'too-many-requests':
-        throw Exception('Too many attempts. Please try again later.');
+        return 'The email address is badly formatted.';
       default:
-        throw Exception(e.message ?? 'An unknown authentication error occurred.');
+        return 'An undefined error happened. Please try again.';
     }
   }
 }

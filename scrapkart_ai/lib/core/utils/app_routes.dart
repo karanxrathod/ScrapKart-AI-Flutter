@@ -8,6 +8,7 @@ import '../../features/scan/prediction_screen.dart';
 import '../../features/tracking/tracking_screen.dart';
 import '../../features/chatbot/chatbot_screen.dart';
 import '../../features/donate/donate_screen.dart';
+import '../../features/wallet/wallet_screen.dart';
 
 class AppRoutes {
   static final router = GoRouter(
@@ -31,7 +32,10 @@ class AppRoutes {
       ),
       GoRoute(
         path: '/booking',
-        builder: (context, state) => const BookingScreen(),
+        builder: (context, state) {
+          final initialData = state.extra as Map<String, dynamic>?;
+          return BookingScreen(initialData: initialData);
+        },
       ),
       GoRoute(
         path: '/prediction',
@@ -42,7 +46,10 @@ class AppRoutes {
       ),
       GoRoute(
         path: '/tracking',
-        builder: (context, state) => const TrackingScreen(),
+        builder: (context, state) {
+          final bookingId = state.uri.queryParameters['id'];
+          return TrackingScreen(bookingId: bookingId);
+        },
       ),
       GoRoute(
         path: '/chatbot',
@@ -51,6 +58,10 @@ class AppRoutes {
       GoRoute(
         path: '/donate',
         builder: (context, state) => const DonateScreen(),
+      ),
+      GoRoute(
+        path: '/wallet',
+        builder: (context, state) => const WalletScreen(),
       ),
       // Future routes will be added here
     ],

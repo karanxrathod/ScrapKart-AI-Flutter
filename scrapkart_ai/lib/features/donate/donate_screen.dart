@@ -52,7 +52,7 @@ class _DonateScreenState extends State<DonateScreen> {
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: AppColors.tertiary.withOpacity(0.2),
+                            color: AppColors.tertiary.withValues(alpha: 0.2),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(Icons.volunteer_activism_rounded, color: AppColors.tertiary, size: 40),
@@ -92,7 +92,7 @@ class _DonateScreenState extends State<DonateScreen> {
                           duration: const Duration(milliseconds: 300),
                           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                           decoration: BoxDecoration(
-                            color: isSelected ? AppColors.tertiary : Colors.white.withOpacity(0.4),
+                            color: isSelected ? AppColors.tertiary : Colors.white.withValues(alpha: 0.4),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
                               color: isSelected ? AppColors.tertiary : Colors.white,
@@ -158,7 +158,7 @@ class _DonateScreenState extends State<DonateScreen> {
                           borderRadius: BorderRadius.circular(30),
                         ),
                         elevation: 10,
-                        shadowColor: AppColors.tertiary.withOpacity(0.5),
+                        shadowColor: AppColors.tertiary.withValues(alpha: 0.5),
                       ),
                       child: Text(
                         'Confirm Donation',
