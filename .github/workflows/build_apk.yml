@@ -36,7 +36,7 @@ jobs:
           flutter build apk --release
 
       - name: Upload ScrapKart AI APK
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: scrapkart_ai_release
           path: scrapkart_ai/build/app/outputs/flutter-apk/app-release.apk
@@ -48,7 +48,7 @@ jobs:
           flutter build apk --release
 
       - name: Upload ScrapKart Collector APK
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: scrapkart_collector_release
           path: scrapkart_collector/build/app/outputs/flutter-apk/app-release.apk
